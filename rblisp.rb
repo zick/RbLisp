@@ -51,6 +51,17 @@ def makeExpr(args, env)
     'env' => env }
 end
 
+def nreverse(lst)
+  ret = $kNil
+  while lst['tag'] == 'cons' do
+    tmp = lst['cdr']
+    lst['cdr'] = ret
+    ret = lst
+    lst = tmp
+  end
+  return ret
+end
+
 def isDelimiter(c)
   return c == $kLPar || c == $kRPar || c == $kQuote || /^\s$/ =~ c
 end
@@ -85,14 +96,67 @@ def read(str)
   elsif str[0] == $kRPar then
     return makeError(sprintf('invalid syntax: %s', str)), ''
   elsif str[0] == $kLPar then
-    return makeError('noimpl')
+    return readList(str[1..-1])
   elsif str[0] == $kQuote then
-    return makeError('noimpl')
+    elm, nxt = read(str[1..-1])
+    return makeCons(makeSym('quote'), makeCons(elm, $kNil)), nxt
   else
     return readAtom(str)
   end
 end
 
+def readList(str)
+  ret = $kNil
+  while true do
+    str = skipSpaces(str)
+    if str == '' then
+      return makeError('unfinished parenthesis'), ''
+    elsif str[0] == $kRPar then
+      break
+    end
+    elm, nxt = read(str)
+    if elm['tag'] == 'error' then
+      return elm
+    end
+    ret = makeCons(elm, ret)
+    str = nxt
+  end
+  return nreverse(ret), str[1..-1]
+end
+
+def printObj(obj)
+  if obj['tag'] == 'num' || obj['tag'] == 'sym' || obj['tag'] == 'nil' then
+    return sprintf('%s', obj['data'])
+  elsif obj['tag'] == 'error' then
+    return sprintf('<error: %s>', obj['data'])
+  elsif obj['tag'] == 'cons' then
+    return printList(obj)
+  elsif obj['tag'] == 'subr' then
+    return '<subr>'
+  elsif obj['tag'] == 'expr' then
+    return '<expr>'
+  end
+end
+
+def printList(obj)
+  ret = ''
+  first = true
+  while obj['tag'] == 'cons' do
+    if first then
+      ret = printObj(obj['car'])
+      first = false
+    else
+      ret += ' ' + printObj(obj['car'])
+    end
+    obj = obj['cdr']
+  end
+  if obj['tag'] == 'nil' then
+    return sprintf('(%s)', ret)
+  end
+  return sprintf('(%s . %s)', ret, printObj(obj))
+end
+
 while str = STDIN.gets
-  puts read(str)
+  exp, _ = read(str)
+  puts printObj(exp)
 end
