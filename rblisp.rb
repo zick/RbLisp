@@ -62,6 +62,16 @@ def nreverse(lst)
   return ret
 end
 
+def pairlis(lst1, lst2)
+  ret = $kNil
+  while lst1['tag'] == 'cons' and lst2['tag'] == 'cons' do
+    ret = makeCons(makeCons(lst1['car'], lst2['car']), ret)
+    lst1 = lst1['cdr']
+    lst2 = lst2['cdr']
+  end
+  return nreverse(ret)
+end
+
 def isDelimiter(c)
   return c == $kLPar || c == $kRPar || c == $kQuote || /^\s$/ =~ c
 end
@@ -196,6 +206,8 @@ def eval1(obj, env)
       return eval1(safeCar(safeCdr(safeCdr(args))), env)
     end
     eval1(safeCar(safeCdr(args)), env)
+  elsif op == makeSym('lambda') then
+    return makeExpr(args, env)
   end
   return apply(eval1(op, env), evlis(args, env), env)
 end
@@ -213,6 +225,15 @@ def evlis(lst, env)
   return nreverse(ret)
 end
 
+def progn(body, env)
+  ret = $kNil
+  while body['tag'] == 'cons' do
+    ret = eval1(body['car'], env)
+    body = body['cdr']
+    return ret
+  end
+end
+
 def apply(fn, args, env)
   if fn['tag'] == 'error' then
     return fn
@@ -220,6 +241,8 @@ def apply(fn, args, env)
     return args
   elsif fn['tag'] == 'subr' then
     return fn['data'].call(args)
+  elsif fn['tag'] == 'expr' then
+    return progn(fn['body'], makeCons(pairlis(fn['args'], args), fn['env']))
   end
   return makeError('noimpl')
 end
