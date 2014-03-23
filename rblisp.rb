@@ -156,7 +156,41 @@ def printList(obj)
   return sprintf('(%s . %s)', ret, printObj(obj))
 end
 
+def findVar(sym, env)
+  while env['tag'] == 'cons' do
+    alist = env['car']
+    while alist['tag'] == 'cons' do
+      if alist['car']['car'] == sym
+        return alist['car']
+      end
+      alist = alist['cdr']
+    end
+    env = env['cdr']
+  end
+  return $kNil
+end
+
+$g_env = makeCons($kNil, $kNil)
+
+def addToEnv(sym, val, env)
+  env['car'] = makeCons(makeCons(sym, val), env['car'])
+end
+
+def eval1(obj, env)
+  if obj['tag'] == 'nil' || obj['tag'] == 'num' || obj['tag'] == 'error' then
+    return obj
+  elsif obj['tag'] == 'sym' then
+    bind = findVar(obj, env)
+    if bind == $kNil then
+      return makeError(sprintf('%s has no value', obj['data']))
+    end
+    return bind['cdr']
+  end
+end
+
+addToEnv(makeSym('t'), makeSym('t'), $g_env)
+
 while str = STDIN.gets
   exp, _ = read(str)
-  puts printObj(exp)
+  puts printObj(eval1(exp, $g_env))
 end
