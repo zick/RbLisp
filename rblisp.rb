@@ -213,6 +213,16 @@ def eval1(obj, env)
     sym = safeCar(args)
     addToEnv(sym, expr, $g_env)
     return sym
+  elsif op == makeSym('setq') then
+    val = eval1(safeCar(safeCdr(args)), env)
+    sym = safeCar(args)
+    bind = findVar(sym, env)
+    if bind == $kNil then
+      addToEnv(sym, val, $g_env)
+    else
+      bind['cdr'] = val
+    end
+    return val
   end
   return apply(eval1(op, env), evlis(args, env), env)
 end
