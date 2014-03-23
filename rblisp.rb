@@ -274,12 +274,90 @@ $subrCons = lambda { |args|
   makeCons(safeCar(args), safeCar(safeCdr(args)))
 }
 
+$subrEq = lambda { |args|
+  x = safeCar(args)
+  y = safeCar(safeCdr(args))
+  if x['tag'] == 'num' and y['tag'] == 'num' then
+    if x['data'] == y['data'] then
+      return makeSym('t')
+    end
+    return $kNil
+  elsif x.equal?(y) then
+    return makeSym('t')
+  end
+  return $kNil
+}
+
+$subrAtom = lambda { |args|
+  if safeCar(args)['tag'] == 'cons' then
+    return $kNil
+  end
+  return makeSym('t')
+}
+
+$subrNumberp = lambda { |args|
+  if safeCar(args)['tag'] == 'num' then
+    return makeSym('t')
+  end
+  return $kNil
+}
+
+$subrSymbolp = lambda { |args|
+  if safeCar(args)['tag'] == 'sym' then
+    return makeSym('t')
+  end
+  return $kNil
+}
+
+def subrAddOrMul(fn, init_val)
+  return lambda { |args|
+    ret = init_val
+    while args['tag'] == 'cons' do
+      if args['car']['tag'] != 'num' then
+        return makeError('wrong type')
+      end
+      ret = fn.call(ret, args['car']['data'])
+      args = args['cdr']
+    end
+    return makeNum(ret)
+  }
+end
+$subrAdd = subrAddOrMul(lambda{ |x, y| x + y }, 0)
+$subrMul = subrAddOrMul(lambda{ |x, y| x * y }, 1)
+
+def subrSubOrDivOrMod(fn)
+  return lambda { |args|
+    x = safeCar(args)
+    y = safeCar(safeCdr(args))
+    if x['tag'] != 'num' || y['tag'] != 'num' then
+      return makeError('wrong type')
+    end
+    return makeNum(fn.call(x['data'], y['data']))
+  }
+end
+$subrSub = subrSubOrDivOrMod(lambda{ |x, y| x - y })
+$subrDiv = subrSubOrDivOrMod(lambda{ |x, y| x / y })
+$subrMod = subrSubOrDivOrMod(lambda{ |x, y| x % y })
+
 addToEnv(makeSym('car'), makeSubr($subrCar), $g_env)
 addToEnv(makeSym('cdr'), makeSubr($subrCdr), $g_env)
 addToEnv(makeSym('cons'), makeSubr($subrCons), $g_env)
+addToEnv(makeSym('eq'), makeSubr($subrEq), $g_env)
+addToEnv(makeSym('atom'), makeSubr($subrAtom), $g_env)
+addToEnv(makeSym('numberp'), makeSubr($subrNumberp), $g_env)
+addToEnv(makeSym('symbolp'), makeSubr($subrSymbolp), $g_env)
+addToEnv(makeSym('+'), makeSubr($subrAdd), $g_env)
+addToEnv(makeSym('*'), makeSubr($subrMul), $g_env)
+addToEnv(makeSym('-'), makeSubr($subrSub), $g_env)
+addToEnv(makeSym('/'), makeSubr($subrDiv), $g_env)
+addToEnv(makeSym('mod'), makeSubr($subrMod), $g_env)
 addToEnv(makeSym('t'), makeSym('t'), $g_env)
 
-while str = STDIN.gets
+
+while true
+  print('> ')
+  str = STDIN.gets
+  break if not str
   exp, _ = read(str)
   puts printObj(eval1(exp, $g_env))
 end
