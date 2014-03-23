@@ -205,9 +205,14 @@ def eval1(obj, env)
     if eval1(safeCar(args), env) == $kNil then
       return eval1(safeCar(safeCdr(safeCdr(args))), env)
     end
-    eval1(safeCar(safeCdr(args)), env)
+    return eval1(safeCar(safeCdr(args)), env)
   elsif op == makeSym('lambda') then
     return makeExpr(args, env)
+  elsif op == makeSym('defun') then
+    expr = makeExpr(safeCdr(args), env)
+    sym = safeCar(args)
+    addToEnv(sym, expr, $g_env)
+    return sym
   end
   return apply(eval1(op, env), evlis(args, env), env)
 end
