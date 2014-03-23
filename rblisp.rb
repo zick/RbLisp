@@ -186,8 +186,59 @@ def eval1(obj, env)
     end
     return bind['cdr']
   end
+
+  op = safeCar(obj)
+  args = safeCdr(obj)
+  if op == makeSym('quote') then
+    return safeCar(args)
+  elsif op == makeSym('if') then
+    if eval1(safeCar(args), env) == $kNil then
+      return eval1(safeCar(safeCdr(safeCdr(args))), env)
+    end
+    eval1(safeCar(safeCdr(args)), env)
+  end
+  return apply(eval1(op, env), evlis(args, env), env)
 end
 
+def evlis(lst, env)
+  ret = $kNil
+  while lst['tag'] == 'cons' do
+    elm = eval1(lst['car'], env)
+    if elm['tag'] == 'error' then
+      return elm
+    end
+    ret = makeCons(elm, ret)
+    lst = lst['cdr']
+  end
+  return nreverse(ret)
+end
+
+def apply(fn, args, env)
+  if fn['tag'] == 'error' then
+    return fn
+  elsif args['tag'] == 'error' then
+    return args
+  elsif fn['tag'] == 'subr' then
+    return fn['data'].call(args)
+  end
+  return makeError('noimpl')
+end
+
+$subrCar = lambda { |args|
+  safeCar(safeCar(args))
+}
+
+$subrCdr = lambda { |args|
+  safeCdr(safeCar(args))
+}
+
+$subrCons = lambda { |args|
+  makeCons(safeCar(args), safeCar(safeCdr(args)))
+}
+
+addToEnv(makeSym('car'), makeSubr($subrCar), $g_env)
+addToEnv(makeSym('cdr'), makeSubr($subrCdr), $g_env)
+addToEnv(makeSym('cons'), makeSubr($subrCons), $g_env)
 addToEnv(makeSym('t'), makeSym('t'), $g_env)
 
 while str = STDIN.gets
