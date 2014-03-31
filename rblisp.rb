@@ -255,26 +255,26 @@ def apply(fn, args, env)
   elsif args['tag'] == 'error' then
     return args
   elsif fn['tag'] == 'subr' then
-    return fn['data'].call(args)
+    return fn['data'][args]
   elsif fn['tag'] == 'expr' then
     return progn(fn['body'], makeCons(pairlis(fn['args'], args), fn['env']))
   end
   return makeError('noimpl')
 end
 
-$subrCar = lambda { |args|
+def subrCar(args)
   safeCar(safeCar(args))
-}
+end
 
-$subrCdr = lambda { |args|
+def subrCdr(args)
   safeCdr(safeCar(args))
-}
+end
 
-$subrCons = lambda { |args|
+def subrCons(args)
   makeCons(safeCar(args), safeCar(safeCdr(args)))
-}
+end
 
-$subrEq = lambda { |args|
+def subrEq(args)
   x = safeCar(args)
   y = safeCar(safeCdr(args))
   if x['tag'] == 'num' and y['tag'] == 'num' then
@@ -286,28 +286,28 @@ $subrEq = lambda { |args|
     return makeSym('t')
   end
   return $kNil
-}
+end
 
-$subrAtom = lambda { |args|
+def subrAtom(args)
   if safeCar(args)['tag'] == 'cons' then
     return $kNil
   end
   return makeSym('t')
-}
+end
 
-$subrNumberp = lambda { |args|
+def subrNumberp(args)
   if safeCar(args)['tag'] == 'num' then
     return makeSym('t')
   end
   return $kNil
-}
+end
 
-$subrSymbolp = lambda { |args|
+def subrSymbolp(args)
   if safeCar(args)['tag'] == 'sym' then
     return makeSym('t')
   end
   return $kNil
-}
+end
 
 def subrAddOrMul(fn, init_val)
   return lambda { |args|
@@ -339,13 +339,13 @@ $subrSub = subrSubOrDivOrMod(lambda{ |x, y| x - y })
 $subrDiv = subrSubOrDivOrMod(lambda{ |x, y| x / y })
 $subrMod = subrSubOrDivOrMod(lambda{ |x, y| x % y })
 
-addToEnv(makeSym('car'), makeSubr($subrCar), $g_env)
-addToEnv(makeSym('cdr'), makeSubr($subrCdr), $g_env)
-addToEnv(makeSym('cons'), makeSubr($subrCons), $g_env)
-addToEnv(makeSym('eq'), makeSubr($subrEq), $g_env)
-addToEnv(makeSym('atom'), makeSubr($subrAtom), $g_env)
-addToEnv(makeSym('numberp'), makeSubr($subrNumberp), $g_env)
-addToEnv(makeSym('symbolp'), makeSubr($subrSymbolp), $g_env)
+addToEnv(makeSym('car'), makeSubr(method(:subrCar)), $g_env)
+addToEnv(makeSym('cdr'), makeSubr(method(:subrCdr)), $g_env)
+addToEnv(makeSym('cons'), makeSubr(method(:subrCons)), $g_env)
+addToEnv(makeSym('eq'), makeSubr(method(:subrEq)), $g_env)
+addToEnv(makeSym('atom'), makeSubr(method(:subrAtom)), $g_env)
+addToEnv(makeSym('numberp'), makeSubr(method(:subrNumberp)), $g_env)
+addToEnv(makeSym('symbolp'), makeSubr(method(:subrSymbolp)), $g_env)
 addToEnv(makeSym('+'), makeSubr($subrAdd), $g_env)
 addToEnv(makeSym('*'), makeSubr($subrMul), $g_env)
 addToEnv(makeSym('-'), makeSubr($subrSub), $g_env)
