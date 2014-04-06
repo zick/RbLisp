@@ -126,7 +126,7 @@ def readList(str)
     end
     elm, nxt = read(str)
     if elm['tag'] == 'error' then
-      return elm
+      return elm, ''
     end
     ret = makeCons(elm, ret)
     str = nxt
@@ -245,8 +245,8 @@ def progn(body, env)
   while body['tag'] == 'cons' do
     ret = eval1(body['car'], env)
     body = body['cdr']
-    return ret
   end
+  return ret
 end
 
 def apply(fn, args, env)
