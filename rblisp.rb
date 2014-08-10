@@ -81,8 +81,9 @@ def skipSpaces(str)
 end
 
 def makeNumOrSym(str)
-  if /^[+-]?\d+$/ =~ str then
-    return makeNum(str.to_i)
+  num = str.to_i
+  if num.to_s == str
+    return makeNum(num)
   end
   return makeSym(str)
 end
@@ -153,11 +154,11 @@ def printList(obj)
   first = true
   while obj['tag'] == 'cons' do
     if first then
-      ret = printObj(obj['car'])
       first = false
     else
-      ret += ' ' + printObj(obj['car'])
+      ret += ' '
     end
+    ret += printObj(obj['car'])
     obj = obj['cdr']
   end
   if obj['tag'] == 'nil' then
