@@ -1,24 +1,68 @@
 $kLPar = '('
 $kRPar = ')'
 $kQuote = "'"
-$kNil = { 'tag' => 'nil', 'data' => 'nil' }
+
+class Nil
+end
+$kNil = Nil.new()
+
+class Num
+  def initialize(n)
+    @data = n
+  end
+  attr_reader :data
+end
+
+class Sym
+  def initialize(s)
+    @data = s
+  end
+  attr_reader :data
+end
+
+class Error
+  def initialize(s)
+    @data = s
+  end
+  attr_reader :data
+end
+
+class Cons
+  def initialize(a, d)
+    @car = a
+    @cdr = d
+  end
+  attr_accessor :car, :cdr
+end
+
+class Subr
+  def initialize(fn)
+    @data = fn
+  end
+  attr_reader :data
+end
+
+class Expr
+  def initialize(a, b, e)
+    @args = a
+    @body = b
+    @env = e
+  end
+  attr_reader :args, :body, :env
+end
 
 def safeCar(obj)
-  if obj['tag'] == 'cons' then
-    return obj['car']
+  if obj.class == Cons then
+    return obj.car
   end
   return $kNil
 end
 
 def safeCdr(obj)
-  if obj['tag'] == 'cons' then
-    return obj['cdr']
+  if obj.class == Cons then
+    return obj.cdr
   end
   return $kNil
-end
-
-def makeError(str)
-  return { 'tag' => 'error', 'data' => str }
 end
 
 $sym_table = {}
@@ -26,36 +70,20 @@ def makeSym(str)
   if str == 'nil' then
     return $kNil
   elsif not $sym_table.key?(str) then
-    $sym_table[str] = { 'tag' => 'sym', 'data' => str }
+    $sym_table[str] = Sym.new(str)
   end
   return $sym_table[str]
 end
 
-def makeNum(num)
-  return { 'tag' => 'num', 'data' => num }
-end
-
-def makeCons(a, d)
-  return { 'tag' => 'cons', 'car' => a, 'cdr' => d }
-end
-
-def makeSubr(fn)
-  return { 'tag' => 'subr', 'data' => fn }
-end
-
 def makeExpr(args, env)
-  return {
-    'tag' => 'expr',
-    'args' => safeCar(args),
-    'body' => safeCdr(args),
-    'env' => env }
+  return Expr.new(safeCar(args), safeCdr(args), env)
 end
 
 def nreverse(lst)
   ret = $kNil
-  while lst['tag'] == 'cons' do
-    tmp = lst['cdr']
-    lst['cdr'] = ret
+  while lst.class == Cons do
+    tmp = lst.cdr
+    lst.cdr = ret
     ret = lst
     lst = tmp
   end
@@ -64,10 +92,10 @@ end
 
 def pairlis(lst1, lst2)
   ret = $kNil
-  while lst1['tag'] == 'cons' and lst2['tag'] == 'cons' do
-    ret = makeCons(makeCons(lst1['car'], lst2['car']), ret)
-    lst1 = lst1['cdr']
-    lst2 = lst2['cdr']
+  while lst1.class == Cons and lst2.class == Cons do
+    ret = Cons.new(Cons.new(lst1.car, lst2.car), ret)
+    lst1 = lst1.cdr
+    lst2 = lst2.cdr
   end
   return nreverse(ret)
 end
@@ -83,7 +111,7 @@ end
 def makeNumOrSym(str)
   num = str.to_i
   if num.to_s == str
-    return makeNum(num)
+    return Num.new(num)
   end
   return makeSym(str)
 end
@@ -103,14 +131,14 @@ end
 def read(str)
   str = skipSpaces(str)
   if str == '' then
-    return makeError('empty input'), ''
+    return Error.new('empty input'), ''
   elsif str[0] == $kRPar then
-    return makeError(sprintf('invalid syntax: %s', str)), ''
+    return Error.new(sprintf('invalid syntax: %s', str)), ''
   elsif str[0] == $kLPar then
     return readList(str[1..-1])
   elsif str[0] == $kQuote then
     elm, nxt = read(str[1..-1])
-    return makeCons(makeSym('quote'), makeCons(elm, $kNil)), nxt
+    return Cons.new(makeSym('quote'), Cons.new(elm, $kNil)), nxt
   else
     return readAtom(str)
   end
@@ -121,30 +149,33 @@ def readList(str)
   while true do
     str = skipSpaces(str)
     if str == '' then
-      return makeError('unfinished parenthesis'), ''
+      return Error.new('unfinished parenthesis'), ''
     elsif str[0] == $kRPar then
       break
     end
     elm, nxt = read(str)
-    if elm['tag'] == 'error' then
+    if elm.class == Error then
       return elm, ''
     end
-    ret = makeCons(elm, ret)
+    ret = Cons.new(elm, ret)
     str = nxt
   end
   return nreverse(ret), str[1..-1]
 end
 
 def printObj(obj)
-  if obj['tag'] == 'num' || obj['tag'] == 'sym' || obj['tag'] == 'nil' then
-    return sprintf('%s', obj['data'])
-  elsif obj['tag'] == 'error' then
-    return sprintf('<error: %s>', obj['data'])
-  elsif obj['tag'] == 'cons' then
+  type = obj.class
+  if type == Nil then
+    return 'nil'
+  elsif type == Num || type == Sym then
+    return sprintf('%s', obj.data)
+  elsif type == Error then
+    return sprintf('<error: %s>', obj.data)
+  elsif type == Cons then
     return printList(obj)
-  elsif obj['tag'] == 'subr' then
+  elsif type == Subr then
     return '<subr>'
-  elsif obj['tag'] == 'expr' then
+  elsif type == Expr then
     return '<expr>'
   end
 end
@@ -152,50 +183,51 @@ end
 def printList(obj)
   ret = ''
   first = true
-  while obj['tag'] == 'cons' do
+  while obj.class == Cons do
     if first then
       first = false
     else
       ret += ' '
     end
-    ret += printObj(obj['car'])
-    obj = obj['cdr']
+    ret += printObj(obj.car)
+    obj = obj.cdr
   end
-  if obj['tag'] == 'nil' then
+  if obj.class == Nil then
     return sprintf('(%s)', ret)
   end
   return sprintf('(%s . %s)', ret, printObj(obj))
 end
 
 def findVar(sym, env)
-  while env['tag'] == 'cons' do
-    alist = env['car']
-    while alist['tag'] == 'cons' do
-      if alist['car']['car'] == sym
-        return alist['car']
+  while env.class == Cons do
+    alist = env.car
+    while alist.class == Cons do
+      if alist.car.car == sym
+        return alist.car
       end
-      alist = alist['cdr']
+      alist = alist.cdr
     end
-    env = env['cdr']
+    env = env.cdr
   end
   return $kNil
 end
 
-$g_env = makeCons($kNil, $kNil)
+$g_env = Cons.new($kNil, $kNil)
 
 def addToEnv(sym, val, env)
-  env['car'] = makeCons(makeCons(sym, val), env['car'])
+  env.car = Cons.new(Cons.new(sym, val), env.car)
 end
 
 def eval1(obj, env)
-  if obj['tag'] == 'nil' || obj['tag'] == 'num' || obj['tag'] == 'error' then
+  type = obj.class
+  if type == Nil || type == Num || type == Error then
     return obj
-  elsif obj['tag'] == 'sym' then
+  elsif type == Sym then
     bind = findVar(obj, env)
     if bind == $kNil then
-      return makeError(sprintf('%s has no value', obj['data']))
+      return Error.new(sprintf('%s has no value', obj.data))
     end
-    return bind['cdr']
+    return bind.cdr
   end
 
   op = safeCar(obj)
@@ -221,7 +253,7 @@ def eval1(obj, env)
     if bind == $kNil then
       addToEnv(sym, val, $g_env)
     else
-      bind['cdr'] = val
+      bind.cdr = val
     end
     return val
   end
@@ -230,37 +262,37 @@ end
 
 def evlis(lst, env)
   ret = $kNil
-  while lst['tag'] == 'cons' do
-    elm = eval1(lst['car'], env)
-    if elm['tag'] == 'error' then
+  while lst.class == Cons do
+    elm = eval1(lst.car, env)
+    if elm.class == Error then
       return elm
     end
-    ret = makeCons(elm, ret)
-    lst = lst['cdr']
+    ret = Cons.new(elm, ret)
+    lst = lst.cdr
   end
   return nreverse(ret)
 end
 
 def progn(body, env)
   ret = $kNil
-  while body['tag'] == 'cons' do
-    ret = eval1(body['car'], env)
-    body = body['cdr']
+  while body.class == Cons do
+    ret = eval1(body.car, env)
+    body = body.cdr
   end
   return ret
 end
 
 def apply(fn, args, env)
-  if fn['tag'] == 'error' then
+  if fn.class == Error then
     return fn
-  elsif args['tag'] == 'error' then
+  elsif args.class == Error then
     return args
-  elsif fn['tag'] == 'subr' then
-    return fn['data'][args]
-  elsif fn['tag'] == 'expr' then
-    return progn(fn['body'], makeCons(pairlis(fn['args'], args), fn['env']))
+  elsif fn.class == Subr then
+    return fn.data[args]
+  elsif fn.class == Expr then
+    return progn(fn.body, Cons.new(pairlis(fn.args, args), fn.env))
   end
-  return makeError('noimpl')
+  return Error.new('noimpl')
 end
 
 def subrCar(args)
@@ -272,14 +304,14 @@ def subrCdr(args)
 end
 
 def subrCons(args)
-  makeCons(safeCar(args), safeCar(safeCdr(args)))
+  Cons.new(safeCar(args), safeCar(safeCdr(args)))
 end
 
 def subrEq(args)
   x = safeCar(args)
   y = safeCar(safeCdr(args))
-  if x['tag'] == 'num' and y['tag'] == 'num' then
-    if x['data'] == y['data'] then
+  if x.class == Num and y.class == Num then
+    if x.data == y.data then
       return makeSym('t')
     end
     return $kNil
@@ -290,21 +322,21 @@ def subrEq(args)
 end
 
 def subrAtom(args)
-  if safeCar(args)['tag'] == 'cons' then
+  if safeCar(args).class == Cons then
     return $kNil
   end
   return makeSym('t')
 end
 
 def subrNumberp(args)
-  if safeCar(args)['tag'] == 'num' then
+  if safeCar(args).class == Num then
     return makeSym('t')
   end
   return $kNil
 end
 
 def subrSymbolp(args)
-  if safeCar(args)['tag'] == 'sym' then
+  if safeCar(args).class == Sym then
     return makeSym('t')
   end
   return $kNil
@@ -313,14 +345,14 @@ end
 def subrAddOrMul(fn, init_val)
   return lambda { |args|
     ret = init_val
-    while args['tag'] == 'cons' do
-      if args['car']['tag'] != 'num' then
-        return makeError('wrong type')
+    while args.class == Cons do
+      if args.car.class != Num then
+        return Error.new('wrong type')
       end
-      ret = fn.call(ret, args['car']['data'])
-      args = args['cdr']
+      ret = fn.call(ret, args.car.data)
+      args = args.cdr
     end
-    return makeNum(ret)
+    return Num.new(ret)
   }
 end
 $subrAdd = subrAddOrMul(lambda{ |x, y| x + y }, 0)
@@ -330,28 +362,28 @@ def subrSubOrDivOrMod(fn)
   return lambda { |args|
     x = safeCar(args)
     y = safeCar(safeCdr(args))
-    if x['tag'] != 'num' || y['tag'] != 'num' then
-      return makeError('wrong type')
+    if x.class != Num || y.class != Num then
+      return Error.new('wrong type')
     end
-    return makeNum(fn.call(x['data'], y['data']))
+    return Num.new(fn.call(x.data, y.data))
   }
 end
 $subrSub = subrSubOrDivOrMod(lambda{ |x, y| x - y })
 $subrDiv = subrSubOrDivOrMod(lambda{ |x, y| x / y })
 $subrMod = subrSubOrDivOrMod(lambda{ |x, y| x % y })
 
-addToEnv(makeSym('car'), makeSubr(method(:subrCar)), $g_env)
-addToEnv(makeSym('cdr'), makeSubr(method(:subrCdr)), $g_env)
-addToEnv(makeSym('cons'), makeSubr(method(:subrCons)), $g_env)
-addToEnv(makeSym('eq'), makeSubr(method(:subrEq)), $g_env)
-addToEnv(makeSym('atom'), makeSubr(method(:subrAtom)), $g_env)
-addToEnv(makeSym('numberp'), makeSubr(method(:subrNumberp)), $g_env)
-addToEnv(makeSym('symbolp'), makeSubr(method(:subrSymbolp)), $g_env)
-addToEnv(makeSym('+'), makeSubr($subrAdd), $g_env)
-addToEnv(makeSym('*'), makeSubr($subrMul), $g_env)
-addToEnv(makeSym('-'), makeSubr($subrSub), $g_env)
-addToEnv(makeSym('/'), makeSubr($subrDiv), $g_env)
-addToEnv(makeSym('mod'), makeSubr($subrMod), $g_env)
+addToEnv(makeSym('car'), Subr.new(method(:subrCar)), $g_env)
+addToEnv(makeSym('cdr'), Subr.new(method(:subrCdr)), $g_env)
+addToEnv(makeSym('cons'), Subr.new(method(:subrCons)), $g_env)
+addToEnv(makeSym('eq'), Subr.new(method(:subrEq)), $g_env)
+addToEnv(makeSym('atom'), Subr.new(method(:subrAtom)), $g_env)
+addToEnv(makeSym('numberp'), Subr.new(method(:subrNumberp)), $g_env)
+addToEnv(makeSym('symbolp'), Subr.new(method(:subrSymbolp)), $g_env)
+addToEnv(makeSym('+'), Subr.new($subrAdd), $g_env)
+addToEnv(makeSym('*'), Subr.new($subrMul), $g_env)
+addToEnv(makeSym('-'), Subr.new($subrSub), $g_env)
+addToEnv(makeSym('/'), Subr.new($subrDiv), $g_env)
+addToEnv(makeSym('mod'), Subr.new($subrMod), $g_env)
 addToEnv(makeSym('t'), makeSym('t'), $g_env)
 
 
