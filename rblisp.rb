@@ -80,6 +80,9 @@ $sym_if = makeSym('if')
 $sym_lambda = makeSym('lambda')
 $sym_defun = makeSym('defun')
 $sym_setq = makeSym('setq')
+$sym_loop = makeSym('loop')
+$sym_return = makeSym('return')
+$loop_val = $kNil
 
 def makeExpr(args, env)
   return Expr.new(safeCar(args), safeCdr(args), env)
@@ -241,7 +244,10 @@ def eval1(obj, env)
   if op == $sym_quote then
     return safeCar(args)
   elsif op == $sym_if then
-    if eval1(safeCar(args), env) == $kNil then
+    c = eval1(safeCar(args), env)
+    if c.class == Error then
+      return c
+    elsif c == $kNil then
       return eval1(safeCar(safeCdr(safeCdr(args))), env)
     end
     return eval1(safeCar(safeCdr(args)), env)
@@ -254,6 +260,9 @@ def eval1(obj, env)
     return sym
   elsif op == $sym_setq then
     val = eval1(safeCar(safeCdr(args)), env)
+    if val.class == Error then
+      return val
+    end
     sym = safeCar(args)
     bind = findVar(sym, env)
     if bind == $kNil then
@@ -262,6 +271,11 @@ def eval1(obj, env)
       bind.cdr = val
     end
     return val
+  elsif op == $sym_loop then
+    return loop(args, env)
+  elsif op == $sym_return then
+    $loop_val = eval1(safeCar(args), env)
+    return Error.new('')
   end
   return apply(eval1(op, env), evlis(args, env), env)
 end
@@ -283,9 +297,24 @@ def progn(body, env)
   ret = $kNil
   while body.class == Cons do
     ret = eval1(body.car, env)
+    if ret.class == Error then
+      return ret
+    end
     body = body.cdr
   end
   return ret
+end
+
+def loop(body, env)
+  while true
+    ret = progn(body, env)
+    if ret.class == Error then
+      if ret.data == '' then
+        return $loop_val
+      end
+      return ret
+    end
+  end
 end
 
 def apply(fn, args, env)
