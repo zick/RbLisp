@@ -74,6 +74,12 @@ def makeSym(str)
   end
   return $sym_table[str]
 end
+$sym_t = makeSym('t')
+$sym_quote = makeSym('quote')
+$sym_if = makeSym('if')
+$sym_lambda = makeSym('lambda')
+$sym_defun = makeSym('defun')
+$sym_setq = makeSym('setq')
 
 def makeExpr(args, env)
   return Expr.new(safeCar(args), safeCdr(args), env)
@@ -138,7 +144,7 @@ def read(str)
     return readList(str[1..-1])
   elsif str[0] == $kQuote then
     elm, nxt = read(str[1..-1])
-    return Cons.new(makeSym('quote'), Cons.new(elm, $kNil)), nxt
+    return Cons.new($sym_quote, Cons.new(elm, $kNil)), nxt
   else
     return readAtom(str)
   end
@@ -232,21 +238,21 @@ def eval1(obj, env)
 
   op = safeCar(obj)
   args = safeCdr(obj)
-  if op == makeSym('quote') then
+  if op == $sym_quote then
     return safeCar(args)
-  elsif op == makeSym('if') then
+  elsif op == $sym_if then
     if eval1(safeCar(args), env) == $kNil then
       return eval1(safeCar(safeCdr(safeCdr(args))), env)
     end
     return eval1(safeCar(safeCdr(args)), env)
-  elsif op == makeSym('lambda') then
+  elsif op == $sym_lambda then
     return makeExpr(args, env)
-  elsif op == makeSym('defun') then
+  elsif op == $sym_defun then
     expr = makeExpr(safeCdr(args), env)
     sym = safeCar(args)
     addToEnv(sym, expr, $g_env)
     return sym
-  elsif op == makeSym('setq') then
+  elsif op == $sym_setq then
     val = eval1(safeCar(safeCdr(args)), env)
     sym = safeCar(args)
     bind = findVar(sym, env)
@@ -292,7 +298,7 @@ def apply(fn, args, env)
   elsif fn.class == Expr then
     return progn(fn.body, Cons.new(pairlis(fn.args, args), fn.env))
   end
-  return Error.new('noimpl')
+  return Error.new(printObj(fn) + " is not function")
 end
 
 def subrCar(args)
@@ -312,11 +318,11 @@ def subrEq(args)
   y = safeCar(safeCdr(args))
   if x.class == Num and y.class == Num then
     if x.data == y.data then
-      return makeSym('t')
+      return $sym_t
     end
     return $kNil
   elsif x.equal?(y) then
-    return makeSym('t')
+    return $sym_t
   end
   return $kNil
 end
@@ -325,19 +331,19 @@ def subrAtom(args)
   if safeCar(args).class == Cons then
     return $kNil
   end
-  return makeSym('t')
+  return $sym_t
 end
 
 def subrNumberp(args)
   if safeCar(args).class == Num then
-    return makeSym('t')
+    return $sym_t
   end
   return $kNil
 end
 
 def subrSymbolp(args)
   if safeCar(args).class == Sym then
-    return makeSym('t')
+    return $sym_t
   end
   return $kNil
 end
@@ -384,7 +390,7 @@ addToEnv(makeSym('*'), Subr.new($subrMul), $g_env)
 addToEnv(makeSym('-'), Subr.new($subrSub), $g_env)
 addToEnv(makeSym('/'), Subr.new($subrDiv), $g_env)
 addToEnv(makeSym('mod'), Subr.new($subrMod), $g_env)
-addToEnv(makeSym('t'), makeSym('t'), $g_env)
+addToEnv($sym_t, $sym_t, $g_env)
 
 
 while true
